@@ -1,0 +1,324 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  ::selection {
+    background-color: rgb(66, 143, 255, 0.3);
+  }
+  ::selection {
+    background: rgba(66, 143, 255, 0.3) !important;
+    color: var(--foreground) !important;
+  }
+  ::-moz-selection {
+    background: rgba(66, 143, 255, 0.4) !important;
+    color: var(--foreground) !important;
+  }
+}
+
+@layer utilities {
+  .animate-typing {
+    animation: smoothAppear 0.2s ease-out;
+  }
+}
+
+.markdown-content {
+  position: relative;
+  font-family: monospace;
+  letter-spacing: normal;
+
+  h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin: 0.67em 0;
+  }
+  h2 {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 0.83em 0;
+  }
+  strong {
+    font-weight: bold;
+  }
+  em {
+    font-style: italic;
+  }
+  code {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+  }
+  blockquote {
+    border-left: 3px solid var(--border);
+    margin: 0;
+    padding-left: 1em;
+    color: var(--muted-foreground);
+  }
+  position: relative;
+  
+  .formatted-text {
+    position: relative;
+    z-index: 1;
+  }
+
+  .overlay-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .content-layer {
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.5;
+    font-size: 16px;
+  }
+
+  span {
+    display: inline;
+    position: relative;
+  }
+
+  /* Remove any default margins/padding */
+  p, h1, h2, h3, strong, em, code, blockquote {
+    margin: 0;
+    padding: 0;
+    line-height: inherit;
+    font-size: inherit;
+  }
+
+  strong, em, code {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    line-height: inherit;
+    font-size: inherit;
+  }
+}
+
+/* Add Tiptap styles */
+.ProseMirror {
+  min-height: calc(297mm - 2rem);
+  padding: 12mm;
+  font-family: monospace;
+  font-size: 16px;
+  line-height: 1.5;
+  outline: none;
+}
+
+.ProseMirror p {
+  margin: 0;
+  transition: all 0.2s ease;
+}
+
+.ProseMirror p:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  opacity: 0.5;
+  float: left;
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror p {
+  margin: 0;
+  word-spacing: normal;
+  letter-spacing: normal;
+}
+
+.ProseMirror h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin: 1rem 0;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 0.83rem 0;
+}
+
+/* Ensure paragraphs after headings are normal */
+.ProseMirror h1 + p,
+.ProseMirror h2 + p {
+  font-size: 16px;
+  font-weight: normal;
+  margin: 0;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--border);
+  margin-left: 0;
+  padding-left: 1rem;
+  color: var(--muted-foreground);
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ProseMirror pre {
+  background: hsl(var(--muted));
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  font-family: monospace;
+}
+
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  margin: 0.25rem 0 0 0;
+  cursor: pointer;
+}
+
+/* Font styles */
+.font-mono { font-family: 'JetBrains Mono', monospace !important; }
+.font-sans { font-family: -apple-system, system-ui, sans-serif !important; }
+.font-serif { font-family: 'Times New Roman', serif !important; }
+
+/* Size styles */
+.text-sm { font-size: 0.875rem !important; }
+.text-base { font-size: 1rem !important; }
+.text-lg { font-size: 1.125rem !important; }
+.text-xl { font-size: 1.25rem !important; }
+
+/* Override any existing font styles to ensure Tiptap styles take precedence */
+.ProseMirror [style*="font-family"] {
+  font-family: inherit;
+}
+
+.ProseMirror [style*="font-size"] {
+  font-size: inherit;
+}
+
+/* New specific style overrides for Tiptap */
+.ProseMirror .text-style[style*="font-family"] {
+  font-family: var(--font-family) !important;
+}
+
+.ProseMirror .text-style[style*="font-size"] {
+  font-size: var(--font-size) !important;
+}
+
+/* Font family helpers */
+[data-font-family="serif"] {
+  --font-family: "Times New Roman", serif;
+}
+
+[data-font-family="sans"] {
+  --font-family: -apple-system, system-ui, sans-serif;
+}
+
+[data-font-family="mono"] {
+  --font-family: "JetBrains Mono", monospace;
+}
+
+/* Remove any inherited styles that might interfere */
+.ProseMirror * {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Ensure text-style marks take precedence */
+.ProseMirror .text-style {
+  all: revert;
+  font-family: var(--font-family, inherit);
+  font-size: var(--font-size, inherit);
+  display: inline-block;
+}
+
+/* Reset any conflicting styles */
+.ProseMirror mark, .ProseMirror span {
+  all: revert;
+  font-family: inherit;
+  font-size: inherit;
+}
