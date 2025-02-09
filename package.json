@@ -2,14 +2,16 @@
   "name": "typitst",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "preinstall": "npx npm-force-resolutions",
-    "install": "npm install --force",
-    "dev": "next dev -p 3001",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
+"scripts": {
+  "preinstall": "npx npm-force-resolutions",
+  "install": "npm install --force",
+  "predeploy": "npm install --force",
+  "deploy": "next build && next start",
+  "dev": "next dev -p 3001",
+  "build": "next build",
+  "start": "next start",
+  "lint": "next lint"
+},
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-select": "^2.1.6",
