@@ -1,0 +1,14 @@
+{
+  "extends": [
+    "next/core-web-vitals",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": ["warn", {
+      "varsIgnorePattern": "^(useEffect|motion|AnimatePresence|AnimatedText|currentWord)$",
+      "argsIgnorePattern": "^_"
+    }],
+    "@typescript-eslint/no-empty-interface": "off",
+    "@typescript-eslint/no-empty-object-type": "off"
+  }
+}
