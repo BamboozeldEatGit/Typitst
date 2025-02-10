@@ -458,6 +458,7 @@ export function TextEditor() {
             position={suggestionPosition}
             onSelect={handleSuggestionSelect}
             selectedIndex={selectedIndex}
+            currentWord={currentWord} // Pass the current word
           />
         </CardContent>
       </Card>
