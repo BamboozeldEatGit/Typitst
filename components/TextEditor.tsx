@@ -51,7 +51,160 @@ export function TextEditor() {
   const [lastCopied, setLastCopied] = useState<string>('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Update onUpdate handler to manage cookie
+  const matchCase = (suggestion: string, currentWord: string): string => {
+    // If current word is all caps, make suggestion all caps
+    if (currentWord === currentWord.toUpperCase()) {
+      return suggestion.toUpperCase();
+    }
+    // If current word starts with capital, capitalize suggestion
+    if (currentWord[0] === currentWord[0].toUpperCase()) {
+      return suggestion.charAt(0).toUpperCase() + suggestion.slice(1);
+    }
+    return suggestion;
+  };
+
+  const handleFormat = (format: string) => {
+    if (!editor) return;
+
+    const { from, to } = editor.state.selection;
+
+    // Handle block-level formats differently (don't reset these)
+    if (format === '# {text}') {
+      editor.chain()
+        .focus()
+        .setTextSelection({ from, to })
+        .clearNodes()
+        .setHeading({ level: 1 })
+        .run();
+      return;
+    }
+
+    if (format === '## {text}') {
+      editor.chain()
+        .focus()
+        .setTextSelection({ from, to })
+        .clearNodes()
+        .setHeading({ level: 2 })
+        .run();
+      return;
+    }
+
+    // For inline formats, use the toggle pattern
+    const chain = editor.chain().focus().setTextSelection({ from, to });
+    
+    switch (format) {
+      case '**{text}**':
+        chain.toggleBold()
+          .setTextSelection(to)
+          .insertContent(' ')
+          .toggleBold()
+          .run();
+        break;
+      case '_{text}_':
+        chain.toggleItalic()
+          .setTextSelection(to)
+          .insertContent(' ')
+          .toggleItalic()
+          .run();
+        break;
+      case '~~{text}~~':
+        chain.toggleStrike()
+          .setTextSelection(to)
+          .insertContent(' ')
+          .toggleStrike()
+          .run();
+        break;
+      case 'font-mono':
+      case 'font-sans':
+      case 'font-serif':
+        chain.setMark('textStyle', { style: `font-family: ${getFontFamily(format)}` })
+          .setTextSelection(to)
+          .insertContent(' ')
+          .unsetMark('textStyle')
+          .run();
+        break;
+      // ...other cases...
+    }
+  };
+
+  const handleKeyDown = (view: any, event: KeyboardEvent) => {
+    // Close suggestions on backspace or when command palette opens
+    if (event.key === 'Backspace' || event.key === '/' || event.key === '?') {
+      setSuggestions([]);
+      setSuggestionPosition(null);
+      setSelectedIndex(0);
+    }
+
+    // Handle suggestions
+    if (suggestions.length > 0) {
+      if (event.key === 'Tab' || event.key === 'Enter') {
+        event.preventDefault();
+        handleSuggestionSelect(suggestions[selectedIndex].word);
+        return true;
+      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        setSelectedIndex((prev) => 
+          event.key === 'ArrowDown'
+            ? (prev < suggestions.length - 1 ? prev + 1 : prev)
+            : (prev > 0 ? prev - 1 : prev)
+        );
+        return true;
+      }
+      if (event.key === 'Escape') {
+        setSuggestions([]);
+        setSuggestionPosition(null);
+        return true;
+      }
+    }
+
+    // For normal character input
+    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      
+      editor?.commands.first(({ commands }) => {
+        // First clear any active formatting
+        if (editor.isActive('bold')) commands.toggleBold();
+        if (editor.isActive('italic')) commands.toggleItalic();
+        if (editor.isActive('strike')) commands.toggleStrike();
+        if (editor.isActive('textStyle')) commands.unsetMark('textStyle');
+        
+        // Then insert the character
+        return commands.insertContent(event.key);
+      });
+
+      // Update suggestions for the new word
+      setTimeout(() => {
+        const current = getCurrentWordAndPosition();
+        if (current) {
+          setCurrentWord(current.word);
+          setSuggestionPosition(current.position);
+          if (current.word.length >= 2) {
+            fetchSuggestions(current.word);
+          }
+        }
+      }, 0);
+
+      return true;
+    }
+
+    // Handle command palette (close suggestions when opened)
+    if ((event.ctrlKey && event.shiftKey && event.key === '?') || 
+        (event.ctrlKey && event.key === '/')) {
+      setSuggestions([]);
+      setSuggestionPosition(null);
+      const selection = editor?.state.selection;
+      if (selection) {
+        setSelectedText(view.state.doc.textBetween(selection.from, selection.to));
+        setIsCommandOpen(true);
+      }
+      return true;
+    }
+
+    return false;
+  };
+
+  // Also update the editor configuration
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -87,62 +240,7 @@ export function TextEditor() {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[calc(297mm-2rem)] p-12'
       },
-      handleKeyDown: (view, event) => {
-        // Handle suggestions first
-        if (suggestions.length > 0) {
-          if (event.key === 'Tab' || event.key === 'Enter') {
-            event.preventDefault();
-            handleSuggestionSelect(suggestions[selectedIndex].word);
-            return true;
-          }
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-            event.preventDefault();
-            setSelectedIndex((prev) => 
-              event.key === 'ArrowDown'
-                ? (prev < suggestions.length - 1 ? prev + 1 : prev)
-                : (prev > 0 ? prev - 1 : prev)
-            );
-            return true;
-          }
-          if (event.key === 'Escape') {
-            setSuggestions([]);
-            setSuggestionPosition(null);
-            return true;
-          }
-        }
-
-        // For normal character input
-        if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
-          event.preventDefault();
-          editor?.chain().focus().insertContent(event.key).run();
-
-          // Update suggestions for the new word
-          setTimeout(() => {
-            const current = getCurrentWordAndPosition();
-            if (current) {
-              setCurrentWord(current.word);
-              setSuggestionPosition(current.position);
-              fetchSuggestions(current.word);
-            }
-          }, 0);
-
-          return true;
-        }
-
-        // Handle command palette shortcut
-        if ((event.ctrlKey && event.shiftKey && event.key === '?') || 
-            (event.ctrlKey && event.key === '/')) {
-          event.preventDefault();
-          const selection = editor?.state.selection;
-          if (selection) {
-            setSelectedText(view.state.doc.textBetween(selection.from, selection.to));
-            setIsCommandOpen(true);
-          }
-          return true;
-        }
-
-        return false;
-      },
+      handleKeyDown,
       parseOptions: {
         preserveWhitespace: true,
       }
@@ -150,19 +248,6 @@ export function TextEditor() {
     onCreate: ({ editor }) => {
       editor.commands.setNode('paragraph')
       editor.commands.unsetAllMarks()
-    },
-    onSelectionUpdate: ({ editor }) => {
-      const { empty } = editor.state.selection
-      if (empty) {
-        editor.commands.unsetAllMarks()
-        if (!editor.isActive('heading') && 
-            !editor.isActive('codeBlock') && 
-            !editor.isActive('blockquote') && 
-            !editor.isActive('bulletList') &&
-            !editor.isActive('taskList')) {
-          editor.commands.setNode('paragraph')
-        }
-      }
     },
     onUpdate: ({ editor }) => {
       const content = editor.getHTML();
@@ -236,13 +321,16 @@ export function TextEditor() {
     
     if (match) {
       const wordStart = lineStart + text.lastIndexOf(match[0]);
+      const currentWord = match[0];
       
-      // Replace the current word with the suggestion
+      // Match the case of the current word
+      const matchedWord = matchCase(word, currentWord);
+      
       editor
         .chain()
         .focus()
         .setTextSelection({ from: wordStart, to: $from.pos })
-        .insertContent(word + ' ')
+        .insertContent(matchedWord + ' ')
         .run();
     }
 
@@ -265,116 +353,6 @@ export function TextEditor() {
       setSuggestions([]);
     }
   };
-
-  const handleFormat = (format: string) => {
-    if (!editor) return
-
-    const { from, to } = editor.state.selection
-
-    // Handle font changes
-    if (format.startsWith('font-')) {
-      const fontFamily = getFontFamily(format)
-      editor.chain().focus()
-        .setTextSelection({ from, to })
-        .setMark('textStyle', { style: `font-family: ${fontFamily}` })
-        .run()
-      return
-    }
-
-    // Handle custom font size
-    if (format.startsWith('text-[')) {
-      const size = format.match(/\d+/)?.[0]
-      if (size) {
-        editor.chain().focus()
-          .setTextSelection({ from, to })
-          .setMark('textStyle', { style: `font-size: ${size}px` })
-          .run()
-      }
-      return
-    }
-
-    switch (format) {
-      case '**{text}**':
-        editor.chain().focus()
-          .setTextSelection({ from, to })
-          .toggleBold()
-          .setTextSelection(to)
-          .unsetMark('bold')
-          .run()
-        break
-      case '_{text}_':
-        editor.chain().focus()
-          .setTextSelection({ from, to })
-          .toggleItalic()
-          .setTextSelection(to)
-          .unsetMark('italic')
-          .run()
-        break
-      case '# {text}':
-        editor.chain().focus()
-          .setTextSelection({ from, to })
-          .clearNodes()
-          .setHeading({ level: 1 })
-          .setTextSelection(to)
-          .insertContent('\n')
-          .run()
-        break
-      case '## {text}':
-        editor.chain().focus()
-          .setTextSelection({ from, to })
-          .clearNodes()
-          .setHeading({ level: 2 })
-          .setTextSelection(to)
-          .insertContent('\n')
-          .run()
-        break
-      case '```\n{text}\n```':
-        editor.chain().focus()
-          .setTextSelection({ from, to })
-          .toggleCodeBlock()
-          .insertContent('\n')
-          .setParagraph()
-          .run()
-        break
-      case '> {text}':
-        editor.chain().focus()
-          .setTextSelection({ from, to })
-          .setBlockquote()
-          .run()
-        break
-      case '- {text}':
-        editor.chain().focus()
-          .setTextSelection({ from, to })
-          .toggleBulletList()
-          .run()
-        break
-      case '- [ ] {text}':
-        editor.chain().focus()
-          .setTextSelection({ from, to })
-          .toggleTaskList()
-          .run()
-        break
-      case '~~{text}~~':
-        editor.chain().focus()
-          .setTextSelection({ from, to })
-          .toggleStrike()
-          .setTextSelection(to)
-          .unsetMark('strike')
-          .run()
-        break
-      case '[{text}]()':
-        const url = window.prompt('Enter URL:')
-        if (url) {
-          editor.chain().focus()
-            .setTextSelection({ from, to })
-            .setLink({ href: url, target: '_blank' })
-            .setTextSelection(to)
-            .unsetMark('link')
-            .run()
-        }
-        break
-    }
-  }
 
   // Helper function to map font classes to actual font families
   const getFontFamily = (fontClass: string) => {
@@ -480,6 +458,7 @@ export function TextEditor() {
             position={suggestionPosition}
             onSelect={handleSuggestionSelect}
             selectedIndex={selectedIndex}
+            currentWord={currentWord} // Pass the current word
           />
         </CardContent>
       </Card>
