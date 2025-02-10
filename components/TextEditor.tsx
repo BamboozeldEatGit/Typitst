@@ -14,6 +14,7 @@ import { Extension } from '@tiptap/core'
 import { Plugin } from 'prosemirror-state'
 import { CompletionSuggestions } from './CompletionSuggestions'
 import { getSmartSuggestions } from '@/utils/getSuggestions'
+import { setCookie, getCookie, deleteCookie } from '@/utils/cookies'
 
 // Simple fade-in animation extension
 const FadeInCharacters = Extension.create({
@@ -40,13 +41,160 @@ const FadeInCharacters = Extension.create({
 })
 
 export function TextEditor() {
-  const [isCommandOpen, setIsCommandOpen] = useState(false)
-  const [selectedText, setSelectedText] = useState("")
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
-  const [suggestionPosition, setSuggestionPosition] = useState<{ x: number; y: number } | null>(null)
-  const [currentWord, setCurrentWord] = useState<string>('')
-  const [selectedIndex, setSelectedIndex] = useState(0)
+  // Initialize all state first
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestionPosition, setSuggestionPosition] = useState<{ x: number; y: number } | null>(null);
+  const [currentWord, setCurrentWord] = useState<string>('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [lastCopied, setLastCopied] = useState<string>('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  // Update onUpdate handler to manage cookie
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        codeBlock: false, // Disable code block
+        blockquote: false, // Disable blockquote
+        text: {
+          HTMLAttributes: {
+            class: 'character'
+          }
+        }
+      }),
+      Link.configure({
+        openOnClick: true,
+        HTMLAttributes: {
+          class: 'text-blue-500 hover:text-blue-700 underline'
+        }
+      }),
+      TaskList,
+      TaskItem.configure({
+        nested: true,
+        HTMLAttributes: {
+          class: 'flex items-start gap-2',
+        },
+      }),
+      TextStyle.configure({  // Configure TextStyle extension
+        HTMLAttributes: {
+          class: '',
+        },
+      }),
+      FadeInCharacters, // Add the fade-in animation extension
+    ],
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none focus:outline-none min-h-[calc(297mm-2rem)] p-12'
+      },
+      handleKeyDown: (view, event) => {
+        // Handle suggestions first
+        if (suggestions.length > 0) {
+          if (event.key === 'Tab' || event.key === 'Enter') {
+            event.preventDefault();
+            handleSuggestionSelect(suggestions[selectedIndex].word);
+            return true;
+          }
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            setSelectedIndex((prev) => 
+              event.key === 'ArrowDown'
+                ? (prev < suggestions.length - 1 ? prev + 1 : prev)
+                : (prev > 0 ? prev - 1 : prev)
+            );
+            return true;
+          }
+          if (event.key === 'Escape') {
+            setSuggestions([]);
+            setSuggestionPosition(null);
+            return true;
+          }
+        }
+
+        // For normal character input
+        if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+          event.preventDefault();
+          editor?.chain().focus().insertContent(event.key).run();
+
+          // Update suggestions for the new word
+          setTimeout(() => {
+            const current = getCurrentWordAndPosition();
+            if (current) {
+              setCurrentWord(current.word);
+              setSuggestionPosition(current.position);
+              fetchSuggestions(current.word);
+            }
+          }, 0);
+
+          return true;
+        }
+
+        // Handle command palette shortcut
+        if ((event.ctrlKey && event.shiftKey && event.key === '?') || 
+            (event.ctrlKey && event.key === '/')) {
+          event.preventDefault();
+          const selection = editor?.state.selection;
+          if (selection) {
+            setSelectedText(view.state.doc.textBetween(selection.from, selection.to));
+            setIsCommandOpen(true);
+          }
+          return true;
+        }
+
+        return false;
+      },
+      parseOptions: {
+        preserveWhitespace: true,
+      }
+    },
+    onCreate: ({ editor }) => {
+      editor.commands.setNode('paragraph')
+      editor.commands.unsetAllMarks()
+    },
+    onSelectionUpdate: ({ editor }) => {
+      const { empty } = editor.state.selection
+      if (empty) {
+        editor.commands.unsetAllMarks()
+        if (!editor.isActive('heading') && 
+            !editor.isActive('codeBlock') && 
+            !editor.isActive('blockquote') && 
+            !editor.isActive('bulletList') &&
+            !editor.isActive('taskList')) {
+          editor.commands.setNode('paragraph')
+        }
+      }
+    },
+    onUpdate: ({ editor }) => {
+      const content = editor.getHTML();
+      localStorage.setItem('editorContent', content);
+      setHasUnsavedChanges(true);
+      
+      // Only set cookie if content has changed from last copied version
+      const plainText = content
+        .replace(/<p>/g, '')
+        .replace(/<\/p>/g, '\n\n')
+        .replace(/<h1>/g, '')
+        .replace(/<\/h1>/g, '\n\n')
+        .replace(/<h2>/g, '')
+        .replace(/<\/h2>/g, '\n\n')
+        .replace(/<br>/g, '\n')
+        .replace(/&nbsp;/g, ' ')
+        .trim();
+
+      if (plainText !== lastCopied) {
+        setCookie('lastDocument', plainText);
+      }
+      
+      // Existing animation code
+      const lastChar = document.querySelector('.ProseMirror > *:last-child > *:last-child');
+      if (lastChar) {
+        lastChar.classList.add('animate-typing');
+        setTimeout(() => lastChar.classList.remove('animate-typing'), 300);
+      }
+    }
+  });
+
+  // Helper functions that use editor
   const getCurrentWordAndPosition = () => {
     if (!editor) return;
 
@@ -240,129 +388,40 @@ export function TextEditor() {
     return fonts[fontClass as keyof typeof fonts] || 'inherit'
   }
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        codeBlock: false, // Disable code block
-        blockquote: false, // Disable blockquote
-        text: {
-          HTMLAttributes: {
-            class: 'character'
-          }
-        }
-      }),
-      Link.configure({
-        openOnClick: true,
-        HTMLAttributes: {
-          class: 'text-blue-500 hover:text-blue-700 underline'
-        }
-      }),
-      TaskList,
-      TaskItem.configure({
-        nested: true,
-        HTMLAttributes: {
-          class: 'flex items-start gap-2',
-        },
-      }),
-      TextStyle.configure({  // Configure TextStyle extension
-        HTMLAttributes: {
-          class: '',
-        },
-      }),
-      FadeInCharacters, // Add the fade-in animation extension
-    ],
-    editorProps: {
-      attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[calc(297mm-2rem)] p-12'
-      },
-      handleKeyDown: (view, event) => {
-        // Handle suggestions first
-        if (suggestions.length > 0) {
-          if (event.key === 'Tab' || event.key === 'Enter') {
-            event.preventDefault();
-            handleSuggestionSelect(suggestions[selectedIndex].word);
-            return true;
-          }
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-            event.preventDefault();
-            setSelectedIndex((prev) => 
-              event.key === 'ArrowDown'
-                ? (prev < suggestions.length - 1 ? prev + 1 : prev)
-                : (prev > 0 ? prev - 1 : prev)
-            );
-            return true;
-          }
-          if (event.key === 'Escape') {
-            setSuggestions([]);
-            setSuggestionPosition(null);
-            return true;
-          }
-        }
-
-        // For normal character input
-        if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
-          event.preventDefault();
-          editor?.chain().focus().insertContent(event.key).run();
-
-          // Update suggestions for the new word
-          setTimeout(() => {
-            const current = getCurrentWordAndPosition();
-            if (current) {
-              setCurrentWord(current.word);
-              setSuggestionPosition(current.position);
-              fetchSuggestions(current.word);
-            }
-          }, 0);
-
-          return true;
-        }
-
-        // Handle command palette shortcut
-        if ((event.ctrlKey && event.shiftKey && event.key === '?') || 
-            (event.ctrlKey && event.key === '/')) {
-          event.preventDefault();
-          const selection = editor?.state.selection;
-          if (selection) {
-            setSelectedText(view.state.doc.textBetween(selection.from, selection.to));
-            setIsCommandOpen(true);
-          }
-          return true;
-        }
-
-        return false;
-      },
-      parseOptions: {
-        preserveWhitespace: true,
+  // Add event listener for page leave
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
       }
-    },
-    onCreate: ({ editor }) => {
-      editor.commands.setNode('paragraph')
-      editor.commands.unsetAllMarks()
-    },
-    onSelectionUpdate: ({ editor }) => {
-      const { empty } = editor.state.selection
-      if (empty) {
-        editor.commands.unsetAllMarks()
-        if (!editor.isActive('heading') && 
-            !editor.isActive('codeBlock') && 
-            !editor.isActive('blockquote') && 
-            !editor.isActive('bulletList') &&
-            !editor.isActive('taskList')) {
-          editor.commands.setNode('paragraph')
-        }
-      }
-    },
-    onUpdate: ({ transaction }) => {
-      // Add animation class to new characters
-      if (transaction.docChanged) {
-        const lastChar = document.querySelector('.ProseMirror > *:last-child > *:last-child')
-        if (lastChar) {
-          lastChar.classList.add('animate-typing')
-          setTimeout(() => lastChar.classList.remove('animate-typing'), 300)
-        }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Load content from localStorage on mount
+  useEffect(() => {
+    if (editor && editor.isEmpty) {
+      const savedContent = localStorage.getItem('editorContent');
+      if (savedContent) {
+        editor.commands.setContent(savedContent);
       }
     }
-  })
+  }, [editor]);
+
+  // Load last document from cookie on mount and set initial content
+  useEffect(() => {
+    const savedDoc = getCookie('lastDocument');
+    if (savedDoc && editor) {
+      // Only load if editor is empty
+      if (editor.isEmpty) {
+        editor.commands.setContent(savedDoc);
+      }
+      setLastCopied(savedDoc);
+    }
+  }, [editor]);
 
   const handleRightClick = (e: React.MouseEvent) => {
     // Only open palette if Ctrl (or Cmd on Mac) is pressed during right click
@@ -376,13 +435,42 @@ export function TextEditor() {
     }
   };
 
+  const handleCopyDocument = () => {
+    if (!editor) return false;
+    
+    const content = editor.getHTML();
+    const plainText = content
+      .replace(/<p>/g, '')
+      .replace(/<\/p>/g, '\n\n')
+      .replace(/<h1>/g, '')
+      .replace(/<\/h1>/g, '\n\n')
+      .replace(/<h2>/g, '')
+      .replace(/<\/h2>/g, '\n\n')
+      .replace(/<br>/g, '\n')
+      .replace(/&nbsp;/g, ' ')
+      .trim();
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(plainText);
+    
+    // Delete the cookie and local storage
+    deleteCookie('lastDocument');
+    localStorage.removeItem('editorContent');
+    
+    // Clear the editor content
+    editor.commands.clearContent();
+    
+    // Reset states
+    setLastCopied('');
+    setHasUnsavedChanges(false);
+    
+    return true;
+  };
+
   return (
     <>
       <Card className="mx-auto mt-8" style={{ width: '210mm', height: '297mm' }}>
-        <CardContent 
-          className="h-full p-4 relative group"
-          onContextMenu={handleRightClick}
-        >
+        <CardContent className="h-full p-4 relative group" onContextMenu={handleRightClick}>
           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-60 transition-opacity text-xs text-muted-foreground">
             Press Ctrl + Right Click or Ctrl + / to format
           </div>
@@ -398,12 +486,13 @@ export function TextEditor() {
       <CommandPalette 
         isOpen={isCommandOpen}
         onClose={() => {
-          setIsCommandOpen(false)
-          setSelectedText("")
+          setIsCommandOpen(false);
+          setSelectedText("");
         }}
         onFormatText={handleFormat}
+        onExport={handleCopyDocument}
         selectedText={selectedText}
       />
     </>
-  )
+  );
 }
