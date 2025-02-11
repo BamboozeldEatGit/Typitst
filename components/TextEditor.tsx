@@ -162,15 +162,23 @@ export function TextEditor() {
     if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
       event.preventDefault();
       
+      // Insert character with animation
       editor?.commands.first(({ commands }) => {
-        // First clear any active formatting
         if (editor.isActive('bold')) commands.toggleBold();
         if (editor.isActive('italic')) commands.toggleItalic();
         if (editor.isActive('strike')) commands.toggleStrike();
         if (editor.isActive('textStyle')) commands.unsetMark('textStyle');
         
-        // Then insert the character
-        return commands.insertContent(event.key);
+        return commands.insertContent({
+          type: 'text',
+          text: event.key,
+          marks: [{
+            type: 'textStyle',
+            attrs: {
+              style: 'display: inline-block;'
+            }
+          }]
+        });
       });
 
       // Update suggestions for the new word
@@ -238,7 +246,7 @@ export function TextEditor() {
     ],
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[calc(297mm-2rem)] p-12'
+        class: 'prose prose-sm max-w-none focus:outline-none min-h-[calc(297mm-2rem)] p-12 transition-colors duration-150'
       },
       handleKeyDown,
       parseOptions: {
