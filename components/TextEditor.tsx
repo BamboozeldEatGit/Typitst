@@ -67,25 +67,93 @@ export function TextEditor() {
     if (!editor) return;
 
     const { from, to } = editor.state.selection;
+    const selectedText = editor.state.doc.textBetween(from, to);
 
-    // Handle block-level formats differently (don't reset these)
-    if (format === '# {text}') {
+    // Handle headings with proper selection clearing
+    if (format === '# {text}' || format === '## {text}') {
+      const level = format === '# {text}' ? 1 : 2;
       editor.chain()
         .focus()
         .setTextSelection({ from, to })
         .clearNodes()
-        .setHeading({ level: 1 })
+        .setHeading({ level })
+        .setTextSelection(to) // Move cursor to end
         .run();
       return;
     }
 
-    if (format === '## {text}') {
+    // Handle links
+    if (format === '[{text}]()') {
+      const href = window.prompt('Enter URL:');
+      if (href) {
+        // Add protocol if missing
+        const fullHref = href.startsWith('http://') || href.startsWith('https://')
+          ? href
+          : `https://${href}`;
+          
+        editor.chain()
+          .focus()
+          .setTextSelection({ from, to })
+          .setLink({ href: fullHref })
+          .run();
+      }
+      return;
+    }
+
+    // Handle lists
+    if (format === '- {text}') {
+      editor.chain()
+        .focus()
+        .toggleBulletList()
+        .insertContent(selectedText || ' ')
+        .run();
+      return;
+    }
+
+    // Handle task lists
+    if (format === '- [ ] {text}') {
+      editor.chain()
+        .focus()
+        .toggleTaskList()
+        .insertContent(selectedText || ' ')
+        .run();
+      return;
+    }
+
+    // Handle font sizes and font families
+    if (format.startsWith('font-') || format.startsWith('text-[')) {
+      const style = format.startsWith('font-') 
+        ? `font-family: ${getFontFamily(format)}` 
+        : `font-size: ${format.match(/\d+/)?.[0]}px`;
+      
       editor.chain()
         .focus()
         .setTextSelection({ from, to })
-        .clearNodes()
-        .setHeading({ level: 2 })
+        .unsetMark('textStyle') // Clear any existing styles first
+        .setMark('textStyle', { style })
         .run();
+        
+      return;
+    }
+
+    // Handle predefined text sizes
+    if (format.match(/^text-(sm|base|lg|xl)$/)) {
+      const sizeMap = {
+        'text-sm': '14px',
+        'text-base': '16px',
+        'text-lg': '18px',
+        'text-xl': '20px'
+      };
+      
+      editor.chain()
+        .focus()
+        .setTextSelection({ from, to })
+        .unsetMark('textStyle')
+        .setMark('textStyle', { 
+          style: `font-size: ${sizeMap[format as keyof typeof sizeMap]}` 
+        })
+        .run();
+        
       return;
     }
 
@@ -127,12 +195,21 @@ export function TextEditor() {
     }
   };
 
+  const closeSuggestions = () => {
+    setSuggestions([]);
+    setSuggestionPosition(null);
+    setSelectedIndex(0);
+  };
+
+  const openCommandPalette = () => {
+    closeSuggestions();
+    setIsCommandOpen(true);
+  };
+
   const handleKeyDown = (view: any, event: KeyboardEvent) => {
     // Close suggestions on backspace or when command palette opens
     if (event.key === 'Backspace' || event.key === '/' || event.key === '?') {
-      setSuggestions([]);
-      setSuggestionPosition(null);
-      setSelectedIndex(0);
+      closeSuggestions();
     }
 
     // Handle suggestions
@@ -199,12 +276,11 @@ export function TextEditor() {
     // Handle command palette (close suggestions when opened)
     if ((event.ctrlKey && event.shiftKey && event.key === '?') || 
         (event.ctrlKey && event.key === '/')) {
-      setSuggestions([]);
-      setSuggestionPosition(null);
+      event.preventDefault();
       const selection = editor?.state.selection;
       if (selection) {
         setSelectedText(view.state.doc.textBetween(selection.from, selection.to));
-        setIsCommandOpen(true);
+        openCommandPalette();
       }
       return true;
     }
@@ -216,19 +292,23 @@ export function TextEditor() {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        codeBlock: false, // Disable code block
-        blockquote: false, // Disable blockquote
-        text: {
-          HTMLAttributes: {
-            class: 'character'
-          }
-        }
+        heading: {
+          levels: [1, 2]
+        },
+        bulletList: true,     // Enable bullet lists
+        orderedList: true,    // Enable ordered lists
+        taskList: true,       // Enable task lists
+        codeBlock: false,     // Disable code block
+        blockquote: false,    // Disable blockquote
       }),
       Link.configure({
         openOnClick: true,
+        protocols: ['http', 'https', 'mailto', 'tel'],
         HTMLAttributes: {
-          class: 'text-blue-500 hover:text-blue-700 underline'
-        }
+          class: 'text-blue-500 hover:text-blue-700 underline',
+          rel: 'noopener noreferrer',
+          target: '_blank'
+        },
       }),
       TaskList,
       TaskItem.configure({
@@ -237,9 +317,10 @@ export function TextEditor() {
           class: 'flex items-start gap-2',
         },
       }),
-      TextStyle.configure({  // Configure TextStyle extension
+      TextStyle.configure({
         HTMLAttributes: {
           class: '',
+          style: '', // Allow style attribute
         },
       }),
       FadeInCharacters, // Add the fade-in animation extension
@@ -366,13 +447,13 @@ export function TextEditor() {
   const getFontFamily = (fontClass: string) => {
     const fonts = {
       'font-mono': '"JetBrains Mono", monospace',
-      'font-sans': '-apple-system, system-ui, sans-serif',
-      'font-serif': '"Times New Roman", serif',
+      'font-sans': 'system-ui, -apple-system, sans-serif',
+      'font-serif': 'Georgia, "Times New Roman", serif',
       'font-inter': 'Inter, sans-serif',
       'font-roboto': 'Roboto, sans-serif'
     }
-    return fonts[fontClass as keyof typeof fonts] || 'inherit'
-  }
+    return fonts[fontClass as keyof typeof fonts] || 'inherit';
+  };
 
   // Add event listener for page leave
   useEffect(() => {
@@ -416,7 +497,7 @@ export function TextEditor() {
       const selection = editor?.state.selection;
       if (selection) {
         setSelectedText(editor.state.doc.textBetween(selection.from, selection.to));
-        setIsCommandOpen(true);
+        openCommandPalette();
       }
     }
   };

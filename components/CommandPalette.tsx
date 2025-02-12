@@ -72,7 +72,16 @@ export function CommandPalette({ isOpen, onClose, onFormatText, onExport, select
   }
 
   return (
-    <CommandDialog open={isOpen} onOpenChange={onClose} className="p-4">
+    <CommandDialog 
+      open={isOpen} 
+      onOpenChange={onClose}
+      className="p-4"
+      shouldPortal={true}
+      aria-describedby="command-description"
+    >
+      <p id="command-description" className="sr-only">
+        Command palette for text formatting and document actions
+      </p>
       <CommandInput 
         placeholder={selectedText 
           ? `How would you like to modify "${selectedText}"?` 
