@@ -14,8 +14,8 @@ Typitst is a rich text editor built with Tiptap and React. It includes features 
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/typitst.git
-    cd typitst
+    git clone https://github.com/BamboozeldEatGit/Typitst.git
+    cd Typitst
     ```
 
 2. Install dependencies:
