@@ -30,3 +30,4 @@ export const TypingAnimation = Extension.create({
     ];
   },
 });
+```
