@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Typitst
 
-## Getting Started
+Typitst is a rich text editor built with Tiptap and React. It includes features like formatting, smart suggestions, and satisfying typing animations.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Rich Text Formatting**: Bold, Italic, Headings, Links, Lists, and more.
+- **Smart Suggestions**: Provides word suggestions as you type.
+- **Typing Animations**: Satisfying animations for a better typing experience.
+- **Command Palette**: Quickly apply formatting and other commands.
+- **Dark Mode**: Toggle between light and dark themes.
+
+## Installation
+
+1. Clone the repository:
+    ```sh
+    git clone https://github.com/yourusername/typitst.git
+    cd typitst
+    ```
+
+2. Install dependencies:
+    ```sh
+    npm install
+    ```
+
+3. Start the development server:
+    ```sh
+    npm run dev
+    ```
+
+## Usage
+
+### TextEditor Component
+
+The `TextEditor` component is the main editor component. It includes features like formatting, suggestions, and animations.
+
+```tsx
+import { TextEditor } from "@/components/TextEditor";
+
+export default function Home() {
+  return (
+    <main className="container mx-auto">
+      <TextEditor />
+    </main>
+  );
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### CommandPalette Component
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The `CommandPalette` component allows you to quickly apply formatting and other commands.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```tsx
+import { CommandPalette } from "@/components/CommandPalette";
 
-## Learn More
+export function App() {
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
 
-To learn more about Next.js, take a look at the following resources:
+  return (
+    <CommandPalette
+      isOpen={isCommandOpen}
+      onClose={() => setIsCommandOpen(false)}
+      onFormatText={(format) => console.log(format)}
+      onExport={() => console.log("Export")}
+    />
+  );
+}
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### ThemeToggle Component
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The `ThemeToggle` component allows you to toggle between light and dark themes.
 
-## Deploy on Vercel
+```tsx
+import { ThemeToggle } from "@/components/ThemeToggle";
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+export function App() {
+  return (
+    <div>
+      <ThemeToggle />
+    </div>
+  );
+}
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Customization
+
+### Adding New Formats
+
+To add new formats to the `CommandPalette`, update the `formatOptions` array in `CommandPalette.tsx`.
+
+```tsx
+const formatOptions = [
+  { id: 'bold', label: 'Bold', icon: 'B', format: '**{text}**' },
+  { id: 'italic', label: 'Italic', icon: 'I', format: '_{text}_' },
+  // Add new formats here
+];
+```
+
+### Adding New Fonts
+
+To add new fonts to the `CommandPalette`, update the `fontFamilies` array in `CommandPalette.tsx`.
+
+```tsx
+const fontFamilies = [
+  { value: 'font-mono', label: 'Monospace' },
+  { value: 'font-sans', label: 'Sans Serif' },
+  // Add new fonts here
+];
+```
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request.
+
+## License
+
+This project is licensed under the MIT License.
